@@ -24,19 +24,26 @@ export async function discoverBuyers(params: BuyerSearchParams): Promise<Orchest
     ? { displayName: params.geo.displayName ?? null, lat: params.geo.lat, lon: params.geo.lon }
     : null;
 
-  // Geocode when coordinates not supplied — chain: nominatim → census → gazetteer
+  // Geocode when coordinates not supplied — race nominatim + census in parallel
+  // (sequential waits exceed serverless limits), gazetteer as instant fallback.
   let geocoder = "nominatim";
   if (!geo) {
-    for (const p of [nominatimProvider, censusProvider, gazetteerProvider]) {
-      try {
-        const g = await p.geocode(params.location);
-        if (g) {
-          geo = { displayName: g.displayName, lat: g.lat, lon: g.lon };
-          geocoder = p.name;
-          break;
-        }
-      } catch {
-        continue;
+    const attempts = await Promise.allSettled([
+      nominatimProvider.geocode(params.location),
+      censusProvider.geocode(params.location),
+    ]);
+    for (const [i, a] of attempts.entries()) {
+      if (a.status === "fulfilled" && a.value) {
+        geo = { displayName: a.value.displayName, lat: a.value.lat, lon: a.value.lon };
+        geocoder = i === 0 ? "nominatim" : "census";
+        break;
+      }
+    }
+    if (!geo) {
+      const g = await gazetteerProvider.geocode(params.location).catch(() => null);
+      if (g) {
+        geo = { displayName: g.displayName, lat: g.lat, lon: g.lon };
+        geocoder = "gazetteer";
       }
     }
   }

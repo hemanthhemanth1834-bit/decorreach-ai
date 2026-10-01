@@ -47,8 +47,9 @@ interface OverpassElement {
 
 /**
  * Live buyer discovery via Overpass API (OpenStreetMap data, free, no key).
- * Strategy: one small per-tag query at a time (union queries time out in dense
- * metros). Effective radius is capped at ~15 km to respect the free endpoints'
+ * Strategy: small per-tag queries fired IN PARALLEL (union queries time out in
+ * dense metros; sequential queries exceed serverless function limits).
+ * Effective radius is capped at ~10 km to respect the free endpoints'
  * fair-use policy; the requested radius is still stored on the search record.
  * Tries two public endpoints and fails gracefully (caller falls back to demo).
  */
@@ -64,12 +65,12 @@ export const overpassProvider: BuyerProvider = {
     const r = Math.round(radius);
 
     async function queryTag(endpoint: string, t: string): Promise<OverpassElement[]> {
-      const query = `[out:json][timeout:12];(node[${t}](around:${r},${lat},${lon}););out 20;`;
+      const query = `[out:json][timeout:10];(node[${t}](around:${r},${lat},${lon}););out 15;`;
       let lastErr: unknown = null;
       for (let attempt = 0; attempt < 2; attempt++) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 12000);
         try {
-          const ctrl = new AbortController();
-          const timer = setTimeout(() => ctrl.abort(), 15000);
           const res = await fetch(endpoint, {
             method: "POST",
             signal: ctrl.signal,
@@ -83,12 +84,17 @@ export const overpassProvider: BuyerProvider = {
           if (res.status === 429) throw new Error("Overpass rate limit (429)");
           if (!res.ok) {
             lastErr = new Error(`Overpass HTTP ${res.status}`);
-            continue; // retry once
+            if (attempt === 0) continue; // one fast retry on HTTP errors
+            throw lastErr;
           }
           const json = (await res.json()) as { elements?: OverpassElement[] };
           return (json.elements ?? []).filter((el) => el.tags?.name);
         } catch (e) {
+          clearTimeout(timer);
           lastErr = e;
+          // Retry only fast HTTP failures, never slow aborts (saves the time budget).
+          if (e instanceof DOMException && e.name === "AbortError") throw e;
+          if (e instanceof Error && /abort/i.test(e.message)) throw e;
         }
       }
       throw lastErr instanceof Error ? lastErr : new Error("Overpass tag query failed");
@@ -96,25 +102,22 @@ export const overpassProvider: BuyerProvider = {
 
     let lastErr: unknown = null;
     for (const endpoint of OVERPASS_URLS) {
+      const settled = await Promise.allSettled(tagFilters.map((t) => queryTag(endpoint, t)));
       const collected: OverpassElement[] = [];
-      let endpointFailed = false;
-      for (const t of tagFilters) {
-        try {
-          const els = await queryTag(endpoint, t);
-          for (const el of els) {
+      let rateLimited = false;
+      for (const s of settled) {
+        if (s.status === "fulfilled") {
+          for (const el of s.value) {
             if (collected.length < 80) collected.push(el);
           }
-        } catch (e) {
-          if (e instanceof Error && /429/.test(e.message)) {
-            lastErr = e;
-            endpointFailed = true;
-            break;
-          }
-          lastErr = e;
-          continue; // try next tag
+        } else if (s.reason instanceof Error && /429/.test(s.reason.message)) {
+          rateLimited = true;
+          lastErr = s.reason;
+        } else {
+          lastErr = s.reason;
         }
       }
-      if (endpointFailed) continue; // try next endpoint
+      if (rateLimited && collected.length === 0) continue; // try next endpoint
       if (collected.length > 0) {
         const category = params.product.trim() || "Home Decor";
         return collected.slice(0, 60).map((el) => {

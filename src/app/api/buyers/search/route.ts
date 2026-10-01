@@ -4,6 +4,10 @@ import { discoverBuyers } from "@/providers/buyers";
 import { getStore, uid } from "@/lib/store";
 import { clientKeyFromHeaders, rateLimit } from "@/lib/rate-limit";
 
+// Live discovery fans out to free geo/business APIs; allow headroom on hosts
+// that support longer serverless durations (Vercel Hobby caps at 60s).
+export const maxDuration = 60;
+
 export async function POST(req: Request) {
   const rl = rateLimit(`buyers:${clientKeyFromHeaders(req.headers)}`, 20, 60_000);
   if (!rl.allowed) {
