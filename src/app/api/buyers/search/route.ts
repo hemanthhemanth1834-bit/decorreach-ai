@@ -63,6 +63,7 @@ export async function POST(req: Request) {
       count: result.leads.length,
       leads: result.leads,
       providers: result.providers,
+      enriched: result.enriched ?? 0,
       notice: result.notice,
     });
   } catch (e) {

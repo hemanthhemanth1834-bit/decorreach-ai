@@ -92,7 +92,7 @@ AI_MODEL= / AI_BASE_URL= (optional)
 EMAIL_PROVIDER=resend
 EMAIL_API_KEY= (server only)
 EMAIL_FROM= / EMAIL_FROM_NAME=
-DEMO_FALLBACK=off (optional, disables demo)`}
+DEMO_FALLBACK=off (production default: live-only; set DEMO_FALLBACK=on for local demo fallback)`}
             </pre>
             <p className="mt-2 text-[11px] text-slate-500">Copy <code>.env.example</code> to <code>.env.local</code>. Never commit real secrets.</p>
           </Card>

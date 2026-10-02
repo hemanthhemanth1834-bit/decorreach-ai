@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     longitude: d.longitude ?? null,
     source: d.source ?? "DecorReach",
     sourceUrl: d.sourceUrl ?? null,
-    sourceType: d.sourceType ?? "demo",
+    sourceType: d.sourceType ?? "live",
     emailAvailability: Boolean(d.email),
     websiteAvailability: Boolean(d.website),
     discoveredAt: now,

@@ -47,11 +47,13 @@ interface OverpassElement {
 
 /**
  * Live buyer discovery via Overpass API (OpenStreetMap data, free, no key).
- * Strategy: small per-tag queries fired IN PARALLEL (union queries time out in
- * dense metros; sequential queries exceed serverless function limits).
- * Effective radius is capped at ~10 km to respect the free endpoints'
- * fair-use policy; the requested radius is still stored on the search record.
- * Tries two public endpoints and fails gracefully (caller falls back to demo).
+ * Strategy: small per-tag `nwr` (node/way/relation) queries fired IN PARALLEL
+ * with `out center` so ways/relations resolve to map coordinates too.
+ * (Union queries time out in dense metros; sequential queries exceed
+ * serverless function limits.) Effective radius is capped at ~10 km to respect
+ * the free endpoints' fair-use policy; the requested radius is still stored on
+ * the search record. Tries multiple public endpoints and fails gracefully
+ * (caller returns a truthful live-only error — never demo data).
  */
 export const overpassProvider: BuyerProvider = {
   name: "overpass",
@@ -65,7 +67,9 @@ export const overpassProvider: BuyerProvider = {
     const r = Math.round(radius);
 
     async function queryTag(endpoint: string, t: string): Promise<OverpassElement[]> {
-      const query = `[out:json][timeout:10];(node[${t}](around:${r},${lat},${lon}););out 15;`;
+      // nwr covers nodes, ways (store footprints) and relations; `out center`
+      // attaches coordinates to ways/relations for map links.
+      const query = `[out:json][timeout:10];(nwr[${t}](around:${r},${lat},${lon}););out center 15;`;
       let lastErr: unknown = null;
       for (let attempt = 0; attempt < 2; attempt++) {
         const ctrl = new AbortController();
@@ -104,20 +108,24 @@ export const overpassProvider: BuyerProvider = {
     for (const endpoint of OVERPASS_URLS) {
       const settled = await Promise.allSettled(tagFilters.map((t) => queryTag(endpoint, t)));
       const collected: OverpassElement[] = [];
-      let rateLimited = false;
+      let overloaded = false;
       for (const s of settled) {
         if (s.status === "fulfilled") {
           for (const el of s.value) {
             if (collected.length < 80) collected.push(el);
           }
-        } else if (s.reason instanceof Error && /429/.test(s.reason.message)) {
-          rateLimited = true;
+        } else if (
+          s.reason instanceof Error &&
+          /(429|50[234]|rate limit|overloaded)/i.test(s.reason.message)
+        ) {
+          // Endpoint is throttled/overloaded — prefer the next mirror when empty.
+          overloaded = true;
           lastErr = s.reason;
         } else {
           lastErr = s.reason;
         }
       }
-      if (rateLimited && collected.length === 0) continue; // try next endpoint
+      if (overloaded && collected.length === 0) continue; // try next endpoint
       if (collected.length > 0) {
         const category = params.product.trim() || "Home Decor";
         return collected.slice(0, 60).map((el) => {

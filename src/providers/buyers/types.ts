@@ -14,20 +14,34 @@ export interface BuyerProvider {
   search(params: BuyerSearchParams): Promise<NormalizedLead[]>;
 }
 
-/** Remove duplicates by normalized name+city+address, keep first (live priority). */
+/** Normalize a business name for dedupe: lowercase, strip punctuation/extra spaces. */
+export function normalizeName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/['’`]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Remove duplicates by normalized name+city+address (live entries win ties). */
 export function dedupeLeads(leads: NormalizedLead[]): NormalizedLead[] {
   const seen = new Map<string, NormalizedLead>();
   const key = (l: NormalizedLead) =>
-    `${l.name.trim().toLowerCase()}|${(l.city ?? "").toLowerCase()}|${(l.address ?? "").toLowerCase().slice(0, 60)}`;
+    `${normalizeName(l.name)}|${(l.city ?? "").toLowerCase().trim()}|${(l.address ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().slice(0, 60)}`;
   for (const lead of leads) {
     const k = key(lead);
+    if (!k.split("|")[0]) continue; // skip nameless entries — never emit junk rows
     if (!seen.has(k)) {
       seen.set(k, lead);
     } else {
       const existing = seen.get(k)!;
-      // Prefer live over demo, prefer entries with email/website
+      // Prefer live over demo, prefer entries with email/website/coords
       const score = (l: NormalizedLead) =>
-        (l.sourceType === "live" ? 2 : 0) + (l.email ? 1 : 0) + (l.website ? 1 : 0);
+        (l.sourceType === "live" ? 2 : 0) +
+        (l.email ? 1 : 0) +
+        (l.website ? 1 : 0) +
+        (l.latitude != null ? 1 : 0);
       if (score(lead) > score(existing)) seen.set(k, lead);
     }
   }

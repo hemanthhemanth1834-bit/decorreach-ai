@@ -37,18 +37,25 @@ export async function GET() {
   const emailConfigured = getEmailProvider().configured;
   const aiConfigured = openAICompatibleProvider.configured;
 
+  const demoOff =
+    (process.env.DEMO_FALLBACK ?? "").trim().toLowerCase() === "off" ||
+    (process.env.NODE_ENV === "production" &&
+      (process.env.DEMO_FALLBACK ?? "").trim().toLowerCase() !== "on");
+
   return NextResponse.json({
     ok: true,
+    liveOnly: demoOff,
     services: {
-      buyers: overpassOk ? "Connected" : "Demo",
-      geocoding: nominatimOk ? "Connected" : "Demo",
+      buyers: overpassOk ? "Connected" : demoOff ? "Error" : "Demo",
+      geocoding: nominatimOk ? "Connected" : "Fallback (census/gazetteer)",
       ai: aiConfigured ? "Connected" : "Not Configured",
       email: emailConfigured ? "Connected" : "Not Configured",
       database: supabaseConfigured() ? "Connected" : "Demo (in-memory)",
     },
     detail: {
-      buyerProviders: ["overpass", "demo"],
-      geocoder: "nominatim",
+      buyerProviders: demoOff ? ["overpass"] : ["overpass", "demo"],
+      geocoders: ["nominatim", "census", "gazetteer"],
+      enrichment: "public-website-email (bounded, opt-out by absence)",
       aiProviders: aiConfigured ? ["openai-compatible"] : ["template-fallback"],
       emailProviders: emailConfigured ? ["resend-compatible"] : [],
     },

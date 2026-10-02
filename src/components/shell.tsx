@@ -54,7 +54,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </nav>
           <div className="mt-auto rounded-xl border border-white/10 bg-white/[0.03] p-4 text-xs leading-relaxed text-slate-400">
             <p className="mb-1 font-semibold text-slate-200">API-powered discovery</p>
-            Live data via OpenStreetMap. Demo mode is always labeled — never faked.
+            Live data via OpenStreetMap. Production is live-only — no sample data, ever.
           </div>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">

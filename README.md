@@ -81,8 +81,10 @@ npm run lint && npm run typecheck && npm test && npm run build
 2. Import in Vercel, add env vars from `.env.example`.
 3. Deploy — no build config needed (`next build`).
 
-## Demo mode
-When Overpass/Nominatim are unreachable or return nothing, the API returns `mode: "demo"` with a banner: *"DEMO MODE — External buyer provider is not configured…"*. Demo rows carry `sourceType: "demo"`, `email: null`, `website: null`. Set `DEMO_FALLBACK=off` to surface live errors instead.
+## Live-only production
+Production (`NODE_ENV=production`) is **live-only by default**: buyer discovery returns genuine results from free sources (Overpass `nwr` queries + Nominatim/U.S. Census/gazetteer geocoding) or a truthful error - demo/sample data is never substituted. The bundled `demoProvider` (`src/providers/buyers/demo.ts`) is kept for local-development compatibility only and is unreachable when demo is off. To re-enable the labeled demo fallback locally, set `DEMO_FALLBACK=on`.
+
+Contact emails are enriched **only** from addresses literally published on a business homepage (bounded: at most 6 homepages per search, 8s timeout, 600KB cap, `mailto:` preferred). When nothing is listed, `email` stays `null` - addresses are never invented.
 
 ## Testing
 ```bash

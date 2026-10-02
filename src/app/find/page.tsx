@@ -13,8 +13,10 @@ interface SearchResult {
   count?: number;
   leads?: NormalizedLead[];
   providers?: string[];
+  enriched?: number;
   notice?: string;
   error?: string;
+  hint?: string;
   location?: { displayName: string | null };
   category?: string;
 }
@@ -172,7 +174,12 @@ export default function FindPage() {
 
       {result && !result.ok && (
         <div className="mt-4 rounded-2xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-200">
-          {result.error}
+          <p className="font-semibold">Live search unavailable</p>
+          <p className="mt-1">{result.error}</p>
+          {result.hint && <p className="mt-1 text-red-300/80">{result.hint}</p>}
+          <p className="mt-2 text-xs text-red-300/70">
+            Production returns live results only — no sample data is substituted. Please retry shortly.
+          </p>
         </div>
       )}
 
@@ -183,9 +190,14 @@ export default function FindPage() {
               {result.mode === "live" ? "● LIVE" : "◆ DEMO MODE"}
             </Badge>
             <span className="text-sm text-slate-300">
-              <strong>{result.count}</strong> buyers found · {result.category} · {location}
+              <strong>{result.count}</strong> live buyers found · {result.category} · {location}
             </span>
             <span className="text-xs text-slate-500">Sources: {(result.providers ?? []).join(", ")}</span>
+            {(result.enriched ?? 0) > 0 && (
+              <span className="text-xs text-cyan-300/80">
+                · {result.enriched} contact emails found on public business websites
+              </span>
+            )}
           </div>
           {result.notice && (
             <div className="mt-2 rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-xs text-amber-200">

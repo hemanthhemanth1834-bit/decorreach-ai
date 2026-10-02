@@ -24,7 +24,7 @@ export const leadSchema = z.object({
   longitude: z.number().nullable().optional(),
   source: z.string().max(120).optional().default("DecorReach"),
   sourceUrl: z.string().max(1000).nullable().optional(),
-  sourceType: z.enum(["live", "demo"]).optional().default("demo"),
+  sourceType: z.enum(["live", "demo"]).optional().default("live"),
 });
 
 export const generateEmailSchema = z.object({
