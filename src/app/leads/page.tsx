@@ -89,7 +89,7 @@ export default function LeadsPage() {
           ))}
         </div>
       )}
-      <LeadDrawer lead={drawer} onClose={() => setDrawer(null)} onSave={() => {}} onEmail={goEmail} />
+      <LeadDrawer lead={drawer} onClose={() => setDrawer(null)} onEmail={goEmail} />
     </div>
   );
 }

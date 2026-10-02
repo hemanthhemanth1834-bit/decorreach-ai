@@ -13,7 +13,7 @@ export function LeadDrawer({
 }: {
   lead: NormalizedLead | null;
   onClose: () => void;
-  onSave: (lead: NormalizedLead) => void;
+  onSave?: (lead: NormalizedLead) => void;
   onEmail: (lead: NormalizedLead) => void;
 }) {
   const [saved, setSaved] = useState(false);
@@ -65,15 +65,17 @@ export function LeadDrawer({
           </a>
         )}
         <div className="mt-6 grid grid-cols-2 gap-2">
-          <button
-            className={btnSecondary}
-            onClick={() => {
-              onSave(lead);
-              setSaved(true);
-            }}
-          >
-            <Save size={15} /> {saved ? "Saved ✓" : "Save Lead"}
-          </button>
+          {onSave && (
+            <button
+              className={btnSecondary}
+              onClick={() => {
+                onSave(lead);
+                setSaved(true);
+              }}
+            >
+              <Save size={15} /> {saved ? "Saved ✓" : "Save Lead"}
+            </button>
+          )}
           <button
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110"
             onClick={() => onEmail(lead)}
