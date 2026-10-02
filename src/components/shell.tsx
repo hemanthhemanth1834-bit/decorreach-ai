@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion, useReducedMotion } from "framer-motion";
 import { LayoutDashboard, Search, Users, Megaphone, MailPen, Settings, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ToastProvider } from "./vfx/toasts";
+import { AmbientBg } from "./vfx/ambient-bg";
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -16,9 +19,12 @@ const NAV = [
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
+  const reduce = useReducedMotion();
   return (
-    <div className="min-h-screen bg-[#0b0f1a] text-slate-100">
-      <div className="mx-auto flex min-h-screen max-w-[1400px]">
+    <ToastProvider>
+    <div className="relative min-h-screen bg-[#0b0f1a] text-slate-100">
+      <AmbientBg />
+      <div className="relative mx-auto flex min-h-screen max-w-[1400px]">
         <aside className="hidden w-64 shrink-0 flex-col border-r border-white/10 bg-[#0f1626]/80 p-5 md:flex">
           <Link href="/" className="mb-8 flex items-center gap-3">
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 font-bold text-white">
@@ -31,7 +37,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               </span>
             </span>
           </Link>
-          <nav className="flex flex-col gap-1">
+          <nav className="flex flex-col gap-1" aria-label="Primary">
             {NAV.map((n) => {
               const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
               const Icon = n.icon;
@@ -39,15 +45,26 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 <Link
                   key={n.href}
                   href={n.href}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                    active
-                      ? "bg-blue-500/15 text-white ring-1 ring-blue-400/30"
-                      : "text-slate-400 hover:bg-white/5 hover:text-white"
+                    "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    active ? "text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"
                   )}
                 >
-                  <Icon size={17} />
-                  {n.label}
+                  {active && (
+                    reduce ? (
+                      <span className="absolute inset-0 rounded-lg bg-blue-500/15 ring-1 ring-blue-400/30" aria-hidden />
+                    ) : (
+                      <motion.span
+                        layoutId="nav-active-pill"
+                        className="absolute inset-0 rounded-lg bg-blue-500/15 ring-1 ring-blue-400/30"
+                        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                        aria-hidden
+                      />
+                    )
+                  )}
+                  <Icon size={17} className="relative" />
+                  <span className="relative">{n.label}</span>
                 </Link>
               );
             })}
@@ -90,5 +107,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     </div>
+    </ToastProvider>
   );
 }

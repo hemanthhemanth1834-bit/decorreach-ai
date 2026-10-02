@@ -45,3 +45,153 @@ body {
   background: #2a3547;
   border-radius: 8px;
 }
+
+/* ---------- DecorReach VFX system (CSS-only layer) ---------- */
+
+.ambient-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(56, 189, 248, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(75% 65% at 50% 0%, #000 20%, transparent 80%);
+  animation: grid-pan 24s linear infinite;
+}
+
+.ambient-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.5;
+  animation: orb-drift 18s ease-in-out infinite alternate;
+}
+.ambient-orb-a {
+  width: 420px;
+  height: 420px;
+  left: -120px;
+  top: -140px;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.35), transparent 70%);
+}
+.ambient-orb-b {
+  width: 380px;
+  height: 380px;
+  right: -100px;
+  top: 10%;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.22), transparent 70%);
+  animation-delay: -6s;
+}
+.ambient-orb-c {
+  width: 520px;
+  height: 300px;
+  left: 30%;
+  bottom: -160px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.25), transparent 70%);
+  animation-delay: -12s;
+}
+
+.hero-scene-fallback {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 50% at 70% 20%, rgba(34, 211, 238, 0.14), transparent 70%),
+    radial-gradient(50% 45% at 20% 15%, rgba(59, 130, 246, 0.18), transparent 70%);
+  animation: orb-drift 16s ease-in-out infinite alternate;
+}
+
+.hero-vignette {
+  background: radial-gradient(70% 60% at 50% 45%, transparent 55%, rgba(11, 15, 26, 0.75) 100%);
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(148, 197, 255, 0.12) 50%, transparent 70%);
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+.live-dot {
+  position: relative;
+}
+.live-dot::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  border: 1px solid rgba(52, 211, 153, 0.55);
+  animation: ping-ring 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.card-lift {
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.card-lift:hover {
+  transform: translateY(-3px);
+  border-color: rgba(34, 211, 238, 0.28);
+  box-shadow: 0 12px 40px -12px rgba(34, 211, 238, 0.25), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+}
+
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shine::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+  transform: skewX(-18deg);
+  transition: left 0.6s ease;
+}
+.btn-shine:hover::before {
+  left: 130%;
+}
+
+@keyframes grid-pan {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 44px, 44px 0; }
+}
+@keyframes orb-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(40px, 24px, 0) scale(1.08); }
+}
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+@keyframes ping-ring {
+  0% { transform: scale(0.7); opacity: 0.9; }
+  80%, 100% { transform: scale(1.5); opacity: 0; }
+}
+
+/* Accessible focus everywhere */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid rgba(34, 211, 238, 0.8);
+  outline-offset: 2px;
+}
+
+/* Respect users who prefer no motion */
+@media (prefers-reduced-motion: reduce) {
+  .ambient-grid,
+  .ambient-orb,
+  .hero-scene-fallback,
+  .live-dot::after,
+  .skeleton-shimmer::after {
+    animation: none;
+  }
+  .card-lift:hover {
+    transform: none;
+  }
+}

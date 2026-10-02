@@ -7,6 +7,9 @@ import { z } from "zod";
 import { sellerProfileSchema } from "@/lib/validation";
 import type { NormalizedLead, SellerProfile } from "@/lib/types";
 import { Badge, Card, btnPrimary, btnSecondary, inputCls, labelCls } from "@/components/ui";
+import { Reveal } from "@/components/vfx/reveal";
+import { useToast } from "@/components/vfx/toasts";
+import { cn } from "@/lib/utils";
 
 const profileKey = "decorreach:seller";
 
@@ -22,6 +25,7 @@ export default function StudioPage() {
   const [sending, setSending] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [to, setTo] = useState("");
+  const toast = useToast();
 
   const { register, getValues } = useForm<FormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -110,11 +114,14 @@ export default function StudioPage() {
       const json = await res.json();
       if (json.ok) {
         setStatus(`Email sent successfully. Provider ID: ${json.providerMessageId ?? "n/a"}`);
+        toast("success", "Email sent successfully");
       } else {
         setStatus(json.error ?? "Send failed. Email provider may not be configured.");
+        toast("error", json.error ?? "Send failed");
       }
     } catch {
       setStatus("Network error during send.");
+      toast("error", "Network error during send");
     } finally {
       setSending(false);
     }
@@ -135,7 +142,8 @@ export default function StudioPage() {
       <p className="mt-1 text-sm text-slate-400">Generate, review, edit, preview, then send — explicit action required.</p>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        <Card>
+        <Reveal>
+        <Card className="h-full">
           <h2 className="mb-3 font-bold">1 · Lead & Seller</h2>
           <div className="rounded-xl bg-white/[0.03] p-3 text-sm">
             {lead ? (
@@ -159,12 +167,17 @@ export default function StudioPage() {
             </div>
             <div className="flex gap-2">
               <button className={btnSecondary} onClick={saveProfile}>Save Profile</button>
-              <button className={btnPrimary} onClick={generate} disabled={generating}>{generating ? "Generating…" : "Generate Email"}</button>
+              <button className={cn(btnPrimary, "btn-shine")} onClick={generate} disabled={generating}>
+                {generating && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden />}
+                {generating ? "Generating…" : "Generate Email"}
+              </button>
             </div>
           </div>
         </Card>
+        </Reveal>
 
-        <Card>
+        <Reveal delay={0.08}>
+        <Card className="h-full">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-bold">2 · Review & Send</h2>
             {label && <Badge tone={label.includes("AI") ? "cyan" : "slate"}>{label}</Badge>}
@@ -176,15 +189,26 @@ export default function StudioPage() {
           <input value={subject} onChange={(e) => setSubject(e.target.value)} className={inputCls} />
           <label className={`${labelCls} mt-3`}>Body</label>
           <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={12} className={`${inputCls} font-[15px] leading-relaxed`} />
-          {body && (
-            <div className="mt-3 rounded-xl border border-white/10 bg-[#0b1322] p-4">
+          {generating ? (
+            <div className="mt-3 space-y-2" role="status" aria-label="Generating email">
+              <div className="skeleton-shimmer h-9 rounded-xl bg-white/[0.06]" />
+              <div className="skeleton-shimmer h-40 rounded-xl bg-white/[0.06]" />
+              <p className="text-xs text-slate-400">Composing a personalized draft…</p>
+            </div>
+          ) : (
+          body && (
+            <div className="card-lift mt-3 rounded-xl border border-white/10 bg-[#0b1322] p-4">
               <p className="text-xs uppercase tracking-wider text-slate-500">Preview</p>
               <p className="mt-1 font-semibold">{subject || "(no subject)"}</p>
               <p className="mt-2 whitespace-pre-wrap text-sm text-slate-300">{body}</p>
             </div>
+          )
           )}
           <div className="mt-3 flex gap-2">
-            <button className={btnPrimary} disabled={sending || !to} onClick={send}>{sending ? "Sending…" : "Send Email"}</button>
+            <button className={cn(btnPrimary, "btn-shine")} disabled={sending || !to} onClick={send}>
+              {sending && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden />}
+              {sending ? "Sending…" : "Send Email"}
+            </button>
           </div>
           {status && <p className="mt-2 text-sm text-slate-300">{status}</p>}
           <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
@@ -193,6 +217,7 @@ export default function StudioPage() {
             appended automatically.
           </p>
         </Card>
+        </Reveal>
       </div>
     </div>
   );

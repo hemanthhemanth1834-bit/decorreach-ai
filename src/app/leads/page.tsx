@@ -2,13 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useReducedMotion } from "framer-motion";
 import type { NormalizedLead } from "@/lib/types";
-import { Badge, Card, Empty, Spinner, btnSecondary, inputCls } from "@/components/ui";
+import { Badge, Card, Empty, btnSecondary, inputCls } from "@/components/ui";
 import { LeadDrawer } from "@/components/lead-drawer";
+import { CardSkeleton } from "@/components/vfx/skeletons";
+import { Reveal } from "@/components/vfx/reveal";
+import { useToast } from "@/components/vfx/toasts";
 import { Mail, Trash2 } from "lucide-react";
 
 export default function LeadsPage() {
   const router = useRouter();
+  const toast = useToast();
+  const reduce = useReducedMotion();
   const [leads, setLeads] = useState<NormalizedLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -39,8 +45,19 @@ export default function LeadsPage() {
   }, [leads, q, fMode]);
 
   async function remove(id: string) {
-    await fetch(`/api/leads?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    setLeads((prev) => prev.filter((l) => l.id !== id));
+    const prev = leads;
+    setLeads((p) => p.filter((l) => l.id !== id));
+    try {
+      const res = await fetch(`/api/leads?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (res.ok) toast("info", "Lead removed");
+      else {
+        setLeads(prev);
+        toast("error", "Could not remove lead");
+      }
+    } catch {
+      setLeads(prev);
+      toast("error", "Could not remove lead");
+    }
   }
 
   function goEmail(lead: NormalizedLead) {
@@ -65,27 +82,40 @@ export default function LeadsPage() {
         </div>
       </Card>
       {loading ? (
-        <Spinner label="Loading leads…" />
+        <div className="mt-4">
+          <CardSkeleton rows={4} />
+        </div>
       ) : !filtered.length ? (
         <div className="mt-4">
           <Empty title="No saved leads yet." hint="Go to Find Buyers, run a search, and save the businesses you want to reach." />
         </div>
       ) : (
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
-          {filtered.map((l) => (
-            <Card key={l.id} className="p-4">
+          {filtered.map((l, i) => (
+            <Reveal key={l.id} delay={reduce ? 0 : Math.min(i * 0.04, 0.25)}>
+            <Card className="card-lift h-full p-4">
               <div className="flex items-start justify-between gap-2">
-                <button className="text-left font-semibold hover:text-cyan-300" onClick={() => setDrawer(l)}>{l.name}</button>
-                <Badge tone={l.sourceType === "live" ? "green" : "amber"}>{l.sourceType.toUpperCase()}</Badge>
+                <button className="rounded text-left font-semibold transition hover:text-cyan-300" onClick={() => setDrawer(l)}>{l.name}</button>
+                <Badge tone={l.sourceType === "live" ? "green" : "amber"}>
+                  {l.sourceType === "live" ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" /> LIVE
+                    </span>
+                  ) : (
+                    "DEMO"
+                  )}
+                </Badge>
               </div>
               <p className="text-xs text-slate-400">{l.category} · {[l.city, l.state].filter(Boolean).join(", ")}</p>
               <p className="mt-1 text-xs text-slate-500">{l.email ?? "No public email"} {l.website ? `· ${l.website}` : ""}</p>
+              <p className="mt-1 text-[11px] text-slate-600">Source: {l.source}</p>
               <div className="mt-3 flex gap-1.5">
                 <button className={btnSecondary} onClick={() => goEmail(l)}><Mail size={13} /> Email</button>
                 <button className={btnSecondary} onClick={() => setDrawer(l)}>View</button>
                 <button className={btnSecondary} onClick={() => remove(l.id)}><Trash2 size={13} /> Remove</button>
               </div>
             </Card>
+            </Reveal>
           ))}
         </div>
       )}

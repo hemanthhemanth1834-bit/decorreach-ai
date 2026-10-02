@@ -2,10 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Search, Save, Mail, ExternalLink, Eye } from "lucide-react";
 import { CATEGORIES, type NormalizedLead } from "@/lib/types";
-import { Badge, Card, Empty, Spinner, btnPrimary, btnSecondary, inputCls, labelCls } from "@/components/ui";
+import { Badge, Card, Empty, btnPrimary, btnSecondary, inputCls, labelCls } from "@/components/ui";
 import { LeadDrawer } from "@/components/lead-drawer";
+import { CardSkeleton } from "@/components/vfx/skeletons";
+import { useToast } from "@/components/vfx/toasts";
+import { cn } from "@/lib/utils";
 
 interface SearchResult {
   ok: boolean;
@@ -43,6 +47,8 @@ export default function FindPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [drawer, setDrawer] = useState<NormalizedLead | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const toast = useToast();
+  const reduce = useReducedMotion();
 
   // Filters
   const [q, setQ] = useState("");
@@ -93,19 +99,30 @@ export default function FindPage() {
     }
   }
 
-  async function saveLead(lead: NormalizedLead) {
+  async function saveLead(lead: NormalizedLead, quiet = false) {
     setSaving(lead.id);
     try {
-      await fetch("/api/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(lead) });
+      const res = await fetch("/api/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(lead) });
+      if (!quiet) {
+        if (res.ok) toast("success", `Saved ${lead.name}`);
+        else toast("error", `Could not save ${lead.name}`);
+      }
+      return res.ok;
+    } catch {
+      if (!quiet) toast("error", `Could not save ${lead.name}`);
+      return false;
     } finally {
       setSaving(null);
     }
   }
 
   async function saveSelected() {
-    for (const l of leads.filter((x) => selected.has(x.id))) {
-      await saveLead(l);
+    const targets = leads.filter((x) => selected.has(x.id));
+    let ok = 0;
+    for (const l of targets) {
+      if (await saveLead(l, true)) ok += 1;
     }
+    if (targets.length) toast("info", `${ok}/${targets.length} lead${targets.length === 1 ? "" : "s"} saved`);
   }
 
   function goEmail(lead: NormalizedLead) {
@@ -129,7 +146,8 @@ export default function FindPage() {
       <h1 className="text-2xl font-bold tracking-tight">Find Buyers</h1>
       <p className="mt-1 text-sm text-slate-400">Live API-powered U.S. buyer discovery. No CSV uploads needed.</p>
 
-      <Card className="mt-5">
+      <Card className="relative mt-5 overflow-hidden">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" aria-hidden />
         <div className="grid gap-4 md:grid-cols-3">
           <div>
             <label className={labelCls}>Product / Category</label>
@@ -163,14 +181,22 @@ export default function FindPage() {
             <input type="number" min={1} max={100} value={radius} onChange={(e) => setRadius(Number(e.target.value))} className={inputCls} />
           </div>
           <div className="flex items-end">
-            <button onClick={runSearch} disabled={loading} className={`${btnPrimary} w-full`}>
-              <Search size={16} /> {loading ? "Searching U.S. buyers…" : "FIND BUYERS"}
+            <button onClick={runSearch} disabled={loading} className={cn(btnPrimary, "btn-shine w-full")}>
+              <Search size={16} className={loading ? "animate-spin" : undefined} /> {loading ? "Searching U.S. buyers…" : "FIND BUYERS"}
             </button>
           </div>
         </div>
       </Card>
 
-      {loading && <Spinner label="Searching U.S. buyers…" />}
+      {loading && (
+        <div className="mt-4">
+          <div className="mb-3 flex items-center gap-3 text-sm text-slate-300">
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-cyan-400/30 border-t-cyan-300" aria-hidden />
+            Searching U.S. buyers across live providers…
+          </div>
+          <CardSkeleton rows={4} />
+        </div>
+      )}
 
       {result && !result.ok && (
         <div className="mt-4 rounded-2xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-200">
@@ -187,7 +213,13 @@ export default function FindPage() {
         <>
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <Badge tone={result.mode === "live" ? "green" : "amber"}>
-              {result.mode === "live" ? "● LIVE" : "◆ DEMO MODE"}
+              {result.mode === "live" ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="live-dot inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" /> LIVE
+                </span>
+              ) : (
+                "◆ DEMO MODE"
+              )}
             </Badge>
             <span className="text-sm text-slate-300">
               <strong>{result.count}</strong> live buyers found · {result.category} · {location}
@@ -246,9 +278,18 @@ export default function FindPage() {
               <Empty title="No matching buyers found." hint="Try another location or category." />
             </div>
           ) : (
-            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            <motion.div layout className="mt-4 grid gap-3 lg:grid-cols-2">
+              <AnimatePresence initial={false}>
               {leads.map((l) => (
-                <Card key={l.id} className="p-4">
+                <motion.div
+                  key={l.id}
+                  layout={!reduce}
+                  initial={reduce ? false : { opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={reduce ? undefined : { opacity: 0, scale: 0.97 }}
+                  transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                >
+                <Card className="card-lift h-full p-4">
                   <div className="flex items-start gap-3">
                     <input type="checkbox" checked={selected.has(l.id)} onChange={() => toggle(l.id)} className="mt-1 h-4 w-4 accent-cyan-400" aria-label={`Select ${l.name}`} />
                     <div className="min-w-0 flex-1">
@@ -276,8 +317,10 @@ export default function FindPage() {
                     </div>
                   </div>
                 </Card>
+                </motion.div>
               ))}
-            </div>
+              </AnimatePresence>
+            </motion.div>
           )}
         </>
       )}

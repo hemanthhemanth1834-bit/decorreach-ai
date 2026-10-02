@@ -2,13 +2,19 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { motion, useReducedMotion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { campaignSchema } from "@/lib/validation";
 import type { Campaign, NormalizedLead } from "@/lib/types";
 import { Badge, Card, Empty, Spinner, btnPrimary, inputCls, labelCls } from "@/components/ui";
+import { Reveal } from "@/components/vfx/reveal";
+import { useToast } from "@/components/vfx/toasts";
+import { cn } from "@/lib/utils";
 
 export default function CampaignsPage() {
+  const toast = useToast();
+  const reduce = useReducedMotion();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [leads, setLeads] = useState<NormalizedLead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,10 +60,12 @@ export default function CampaignsPage() {
       const json = await res.json();
       if (!json.ok) {
         setError(json.error ?? "Could not create campaign.");
+        toast("error", json.error ?? "Could not create campaign.");
         return;
       }
       reset();
       setPicked([]);
+      toast("success", `Campaign "${json.campaign?.name ?? "created"}" is ready`);
       load();
     } finally {
       setCreating(false);
@@ -70,7 +78,8 @@ export default function CampaignsPage() {
       <p className="mt-1 text-sm text-slate-400">Group leads, track per-lead send status truthfully.</p>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        <Card>
+        <Reveal>
+        <Card className="h-full">
           <h2 className="mb-3 font-bold">New Campaign</h2>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
             <div>
@@ -113,11 +122,13 @@ export default function CampaignsPage() {
               </div>
             </div>
             {error && <p className="text-xs text-red-300">{error}</p>}
-            <button className={btnPrimary} disabled={creating}>{creating ? "Creating…" : "Create Campaign"}</button>
+            <button className={cn(btnPrimary, "btn-shine")} disabled={creating}>{creating ? "Creating…" : "Create Campaign"}</button>
           </form>
         </Card>
+        </Reveal>
 
-        <Card>
+        <Reveal delay={0.08}>
+        <Card className="h-full">
           <h2 className="mb-3 font-bold">All Campaigns</h2>
           {loading ? (
             <Spinner />
@@ -125,22 +136,35 @@ export default function CampaignsPage() {
             <Empty title="No campaigns yet." hint="Create one from your saved leads." />
           ) : (
             <ul className="space-y-2">
-              {campaigns.map((c) => (
-                <li key={c.id} className="rounded-xl bg-white/[0.03] p-3">
+              {campaigns.map((c) => {
+                const sent = c.leads.filter((l) => l.status === "sent").length;
+                const failed = c.leads.filter((l) => l.status === "failed").length;
+                const pending = c.leads.filter((l) => l.status === "pending").length;
+                const pct = c.leads.length ? Math.round((sent / c.leads.length) * 100) : 0;
+                return (
+                <li key={c.id} className="card-lift rounded-xl bg-white/[0.03] p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <Link href={`/campaigns/${c.id}`} className="font-semibold hover:text-cyan-300">{c.name}</Link>
+                    <Link href={`/campaigns/${c.id}`} className="rounded font-semibold transition hover:text-cyan-300">{c.name}</Link>
                     <Badge tone={c.status === "Completed" ? "green" : c.status === "Failed" ? "red" : "blue"}>{c.status}</Badge>
                   </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`${c.name} send progress`}>
+                    <motion.div
+                      className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400"
+                      initial={reduce ? false : { width: 0 }}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                    />
+                  </div>
                   <p className="mt-1 text-xs text-slate-500">
-                    {c.leads.length} leads · {c.leads.filter((l) => l.status === "sent").length} sent ·{" "}
-                    {c.leads.filter((l) => l.status === "pending").length} pending ·{" "}
-                    {c.leads.filter((l) => l.status === "failed").length} failed
+                    {c.leads.length} leads · {sent} sent · {pending} pending · {failed} failed
                   </p>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </Card>
+        </Reveal>
       </div>
     </div>
   );
